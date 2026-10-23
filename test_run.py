@@ -74,6 +74,12 @@ class RunTests(unittest.TestCase):
             run.run("codex", self.prompt, self.out)
         self.assertFalse(self.out.exists())
 
+    def test_cancel_terminates_call_and_keeps_status(self):
+        with patch.object(run, "command_for", return_value=[sys.executable, "-c", "import time; time.sleep(30)"]):
+            status = run.run("codex", self.prompt, self.out, cancelled=lambda: True)
+        self.assertEqual(status["status"], "cancelled")
+        self.assertFalse((self.out / "answer.md").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

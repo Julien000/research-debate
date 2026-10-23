@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Research Debate · 研究工作台</title><link rel="stylesheet" href="/static/style.css">
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+  <div id="notice" role="status" aria-live="polite" hidden></div>
+  <section id="login" class="login-card">
+    <div class="brand-mark">r<span>↗</span></div><p class="eyebrow">RESEARCH DEBATE</p>
+    <h1>让一个问题，<br>经得起追问。</h1>
+    <p class="muted">你的私人研究工作台。查找证据，交换观点，保留每一步思考的依据。</p>
+    <form id="login-form"><label for="token">访问口令</label><input id="token" type="password" autocomplete="current-password" required>
+    <button class="primary" type="submit">进入工作台 <span>→</span></button></form>
+    <p class="caption">首次启动后，口令保存在服务器的 .web-token 文件。</p>
+  </section>
+  <div id="workspace" hidden>
+    <aside class="sidebar">
+      <a class="brand" href="/">r<span>↗</span><div>Research<br><strong>Debate</strong></div></a>
+      <button id="new-button" class="primary">＋ 新的研究</button>
+      <div class="section-label">研究记录 <span id="job-count">0</span></div>
+      <nav id="jobs" aria-label="研究记录"></nav>
+      <div class="sidebar-bottom"><span class="dot"></span> 个人研究空间 <button id="logout" class="text-button">退出</button></div>
+    </aside>
+    <main>
+      <header><span class="breadcrumb">工作台 <span>/</span> <span id="breadcrumb">新的研究</span></span><span class="badge">证据先行 · 允许分歧</span></header>
+      <section id="compose" class="compose">
+        <p class="eyebrow">A QUESTION WORTH EXPLORING</p>
+        <h1>从一个还没想明白的<br><span>问题开始。</span></h1>
+        <p class="intro">两位研究参与者独立分析、相互审查。你可以查看文献、每轮讨论，以及结论如何形成。</p>
+        <form id="new-form" class="compose-card">
+          <label for="topic">你想研究什么？</label>
+          <textarea id="topic" rows="3" maxlength="3000" required placeholder="例如：多智能体辩论能否改善短视频虚假信息的危害评估？"></textarea>
+          <label for="context">研究背景与限制 <span class="optional">选填</span></label>
+          <textarea id="context" rows="3" maxlength="12000" placeholder="已有想法、可用数据、研究对象，或你最想弄清楚的分歧。"></textarea>
+          <div class="form-footer"><span>需要时先澄清，再自动推进</span><button id="start" class="primary" type="submit">开始研究 ↗</button></div>
+        </form>
+        <div class="principles"><div><b>01 / 找证据</b><p>检索论文并标明阅读范围</p></div><div><b>02 / 提出质疑</b><p>独立分析与两轮交锋</p></div><div><b>03 / 回到研究</b><p>结论、分歧与最小验证方案</p></div></div>
+        <p class="caption">沿用服务器的 Codex CLI 与 Claude CLI 配置。当前检索覆盖 Crossref / arXiv 的书目信息与可用摘要。</p>
+      </section>
+      <section id="detail" hidden>
+        <div class="detail-heading"><div><p class="eyebrow">RESEARCH NOTEBOOK</p><h1 id="job-title"></h1><p id="job-meta" class="muted"></p></div><button id="cancel" class="secondary">停止任务</button></div>
+        <div id="stage-list" class="stages" aria-label="研究进度"></div>
+        <div id="job-error" class="error-box" hidden></div>
+        <section id="clarify" class="clarify" hidden><h2>先明确几个问题</h2><ol id="questions"></ol><form id="answer-form"><label for="answer">你的补充</label><textarea id="answer" rows="3" maxlength="12000" required></textarea><button class="primary">继续研究 →</button></form></section>
+        <div class="notebook">
+          <section class="reading-pane">
+            <div class="tabs" role="tablist" aria-label="研究内容"><button data-tab="activity" role="tab" aria-selected="true">运行进度</button><button data-tab="debate" role="tab" aria-selected="false">讨论过程</button><button data-tab="report" role="tab" aria-selected="false">最终报告</button><button data-tab="file" role="tab" aria-selected="false">文件预览</button></div>
+            <div id="activity" class="activity"><div class="section-label">研究动态 <span>自动更新</span></div><ol id="events"></ol><p class="caption">关闭页面不会停止任务；重新打开即可查看。单次模型调用可能需要几分钟。</p></div>
+            <div id="preview" hidden><div class="preview-toolbar"><span id="file-name">文本预览</span><a id="download" class="text-button" hidden>下载文件 ↓</a></div><pre id="file-content"></pre></div>
+          </section>
+          <aside class="artifacts"><div class="section-label">研究材料 <span id="file-count">0</span></div><p class="caption">材料随运行逐步生成。选择文件可查看原文。</p><div id="files"></div></aside>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

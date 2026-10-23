@@ -9,6 +9,14 @@ from pathlib import Path
 import signal
 import subprocess
 import tempfile
+import time
+
+
+def write_json(path, value):
+    path = Path(path)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
 
 
 RULES = """你是一名研究讨论参与者。只依据本次提供的问题、证据和公开讨论记录作答。
@@ -69,7 +77,9 @@ def extract_answer(agent, stdout):
     return answer.strip(), models
 
 
-def run(agent, prompt_path, out, timeout=600):
+def run(agent, prompt_path, out, timeout=600, cancelled=None):
+    if agent not in ("codex", "claude"):
+        raise ValueError("unknown agent")
     if timeout <= 0:
         raise ValueError("timeout must be positive")
     material = Path(prompt_path).read_text(encoding="utf-8")
@@ -86,24 +96,37 @@ def run(agent, prompt_path, out, timeout=600):
               "models": [], "model_note": "Use CLI configuration; unknown unless reported by CLI"}
 
     def save_status():
-        (out / "status.json").write_text(
-            json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        write_json(out / "status.json", status)
 
     save_status()
-    stdout, stderr = "", ""
+    stdout = ""
     try:
         # No project files or prior conversations are needed by a debater.
-        with tempfile.TemporaryDirectory(prefix="research-debate-") as cwd:
-            process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                       stderr=subprocess.PIPE, text=True, encoding="utf-8",
+        with tempfile.TemporaryDirectory(prefix="research-debate-") as cwd, \
+                (out / "prompt.md").open() as input_file, \
+                (out / "stdout.txt").open("w") as output_file, \
+                (out / "stderr.txt").open("w") as error_file:
+            process = subprocess.Popen(command, stdin=input_file, stdout=output_file,
+                                       stderr=error_file, text=True, encoding="utf-8",
                                        cwd=cwd, start_new_session=True)
+            deadline = time.monotonic() + timeout
             try:
-                stdout, stderr = process.communicate(prompt, timeout=timeout)
-            except (subprocess.TimeoutExpired, KeyboardInterrupt) as exc:
-                os.killpg(process.pid, signal.SIGKILL)
-                stdout, stderr = process.communicate()
-                status["status"] = "timeout" if isinstance(exc, subprocess.TimeoutExpired) else "interrupted"
+                while process.poll() is None:
+                    if cancelled and cancelled():
+                        status["status"] = "cancelled"
+                        raise ValueError("Call cancelled")
+                    if time.monotonic() >= deadline:
+                        status["status"] = "timeout"
+                        raise subprocess.TimeoutExpired(command, timeout)
+                    time.sleep(0.1)
+            except BaseException:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
                 raise
+            stdout = (out / "stdout.txt").read_text(encoding="utf-8", errors="replace")
             status["returncode"] = process.returncode
             if process.returncode != 0:
                 raise ValueError(f"CLI exited with code {process.returncode}; see stderr.txt")
@@ -113,11 +136,13 @@ def run(agent, prompt_path, out, timeout=600):
             status["status"] = "completed"
     except (OSError, ValueError, subprocess.TimeoutExpired, KeyboardInterrupt) as exc:
         if status["status"] == "running":
-            status["status"] = "failed"
+            status["status"] = "interrupted" if isinstance(exc, KeyboardInterrupt) else "failed"
         status["error"] = f"{type(exc).__name__}: {exc}"
     finally:
-        (out / "stdout.txt").write_text(stdout, encoding="utf-8")
-        (out / "stderr.txt").write_text(stderr, encoding="utf-8")
+        for name in ("stdout.txt", "stderr.txt"):
+            (out / name).touch(exist_ok=True)
+        if status["status"] == "running":
+            status["status"] = "interrupted"
         status["finished_at"] = datetime.now(timezone.utc).isoformat()
         save_status()
     return status
